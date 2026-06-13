@@ -1,0 +1,50 @@
+version: '3.9'
+
+services:
+  app:
+    build: .
+    ports:
+      - "${PORT:-5000}:5000"
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+<% if (useMongoDb) { %>      MONGODB_URI: mongodb://mongodb:27017/<%= projectName %>
+<% } %><% if (useRedis) { %>      REDIS_HOST: redis
+      REDIS_PORT: 6379
+<% } %>    depends_on:<% if (useMongoDb) { %>
+      mongodb:
+        condition: service_healthy<% } %><% if (useRedis) { %>
+      redis:
+        condition: service_healthy<% } %>
+    restart: unless-stopped
+<% if (useMongoDb) { %>
+  mongodb:
+    image: mongo:7-jammy
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+<% } %><% if (useRedis) { %>
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --save 20 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+<% } %>
+volumes:<% if (useMongoDb) { %>
+  mongodb_data:<% } %><% if (useRedis) { %>
+  redis_data:<% } %>

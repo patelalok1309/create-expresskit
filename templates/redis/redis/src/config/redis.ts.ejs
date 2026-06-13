@@ -1,0 +1,70 @@
+<% if (useTypeScript) { %>import { createClient, type RedisClientType } from 'redis';
+
+let client: RedisClientType | null = null;
+
+export function getRedisClient(): RedisClientType {
+  if (client) return client;
+
+  client = createClient({
+    socket: {
+      host: process.env.REDIS_HOST ?? 'localhost',
+      port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
+      reconnectStrategy(retries: number): number {
+        return Math.min(retries * 50, 2000);
+      },
+    },
+    password: process.env.REDIS_PASSWORD || undefined,
+  }) as RedisClientType;
+
+  client.on('connect', () => console.log('✅ Redis connected'));
+  client.on('error', (err: Error) => console.error('❌ Redis error:', err));
+  client.on('end', () => console.warn('⚠️  Redis connection closed'));
+
+  return client;
+}
+
+export async function connectRedis(): Promise<void> {
+  const redis = getRedisClient();
+  await redis.connect();
+
+  process.on('SIGTERM', async () => {
+    await redis.quit();
+    console.log('Redis connection closed');
+  });
+}
+<% } else { %>
+import { createClient } from 'redis';
+
+let client = null;
+
+export function getRedisClient() {
+  if (client) return client;
+
+  client = createClient({
+    socket: {
+      host: process.env.REDIS_HOST ?? 'localhost',
+      port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
+      reconnectStrategy(retries) {
+        return Math.min(retries * 50, 2000);
+      },
+    },
+    password: process.env.REDIS_PASSWORD || undefined,
+  });
+
+  client.on('connect', () => console.log('✅ Redis connected'));
+  client.on('error', (err) => console.error('❌ Redis error:', err));
+  client.on('end', () => console.warn('⚠️  Redis connection closed'));
+
+  return client;
+}
+
+export async function connectRedis() {
+  const redis = getRedisClient();
+  await redis.connect();
+
+  process.on('SIGTERM', async () => {
+    await redis.quit();
+    console.log('Redis connection closed');
+  });
+}
+<% } %>

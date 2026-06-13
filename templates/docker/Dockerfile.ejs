@@ -1,0 +1,39 @@
+# ─── Build Stage ──────────────────────────────────────────────────────────────
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+<% if (useTypeScript) { %>
+COPY tsconfig.json ./
+COPY src ./src
+RUN npm run build
+<% } else { %>
+COPY src ./src
+<% } %>
+
+# ─── Production Stage ─────────────────────────────────────────────────────────
+FROM node:20-alpine AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+# Install only production dependencies
+COPY package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+<% if (useTypeScript) { %>COPY --from=builder /app/dist ./dist
+<% } else { %>COPY --from=builder /app/src ./src
+<% } %>
+# Non-root user for security
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
+
+EXPOSE 5000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD wget -qO- http://localhost:5000/health || exit 1
+
+<% if (useTypeScript) { %>CMD ["node", "dist/server.js"]
+<% } else { %>CMD ["node", "src/server.js"]
+<% } %>

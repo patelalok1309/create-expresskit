@@ -1,0 +1,18 @@
+<% if (useTypeScript) { %>import { Request, Response } from 'express';
+
+export function healthCheck(_req: Request, res: Response): void {
+  res.status(200).json({
+    status: 'ok',
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+  });
+}
+<% } else { %>
+export function healthCheck(_req, res) {
+  res.status(200).json({
+    status: 'ok',
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+  });
+}
+<% } %>

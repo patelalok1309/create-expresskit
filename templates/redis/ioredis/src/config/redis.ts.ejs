@@ -1,0 +1,70 @@
+<% if (useTypeScript) { %>import IORedis from 'ioredis';
+
+let client: IORedis | null = null;
+
+export function getRedisClient(): IORedis {
+  if (client) return client;
+
+  client = new IORedis({
+    host: process.env.REDIS_HOST ?? 'localhost',
+    port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
+    password: process.env.REDIS_PASSWORD || undefined,
+    maxRetriesPerRequest: 3,
+    retryStrategy(times: number): number {
+      return Math.min(times * 50, 2000);
+    },
+    lazyConnect: true,
+  });
+
+  client.on('connect', () => console.log('✅ Redis connected'));
+  client.on('error', (err: Error) => console.error('❌ Redis error:', err));
+  client.on('close', () => console.warn('⚠️  Redis connection closed'));
+
+  return client;
+}
+
+export async function connectRedis(): Promise<void> {
+  const redis = getRedisClient();
+  await redis.connect();
+
+  process.on('SIGTERM', async () => {
+    await redis.quit();
+    console.log('Redis connection closed');
+  });
+}
+<% } else { %>
+import IORedis from 'ioredis';
+
+let client = null;
+
+export function getRedisClient() {
+  if (client) return client;
+
+  client = new IORedis({
+    host: process.env.REDIS_HOST ?? 'localhost',
+    port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
+    password: process.env.REDIS_PASSWORD || undefined,
+    maxRetriesPerRequest: 3,
+    retryStrategy(times) {
+      return Math.min(times * 50, 2000);
+    },
+    lazyConnect: true,
+  });
+
+  client.on('connect', () => console.log('✅ Redis connected'));
+  client.on('error', (err) => console.error('❌ Redis error:', err));
+  client.on('close', () => console.warn('⚠️  Redis connection closed'));
+
+  return client;
+}
+
+export async function connectRedis() {
+  const redis = getRedisClient();
+  await redis.connect();
+
+  process.on('SIGTERM', async () => {
+    await redis.quit();
+    console.log('Redis connection closed');
+  });
+}
+<% } %>
